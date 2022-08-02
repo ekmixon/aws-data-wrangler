@@ -102,11 +102,22 @@ def _generate_transformations(
 ) -> List[Dict[str, Dict[str, Any]]]:
     trans: List[Dict[str, Dict[str, Any]]] = []
     if rename_columns is not None:
-        for k, v in rename_columns.items():
-            trans.append({"RenameColumnOperation": {"ColumnName": k, "NewColumnName": v}})
+        trans.extend(
+            {"RenameColumnOperation": {"ColumnName": k, "NewColumnName": v}}
+            for k, v in rename_columns.items()
+        )
+
     if cast_columns_types is not None:
-        for k, v in cast_columns_types.items():
-            trans.append({"CastColumnTypeOperation": {"ColumnName": k, "NewColumnType": v.upper()}})
+        trans.extend(
+            {
+                "CastColumnTypeOperation": {
+                    "ColumnName": k,
+                    "NewColumnType": v.upper(),
+                }
+            }
+            for k, v in cast_columns_types.items()
+        )
+
     return trans
 
 
@@ -397,7 +408,7 @@ def create_ingestion(
         account_id = sts.get_account_id(boto3_session=session)
     if (dataset_name is None) and (dataset_id is None):
         raise exceptions.InvalidArgument("You must pass a not None dataset_name or dataset_id argument.")
-    if (dataset_id is None) and (dataset_name is not None):
+    if dataset_id is None:
         dataset_id = get_dataset_id(name=dataset_name, account_id=account_id, boto3_session=session)
     if ingestion_id is None:
         ingestion_id = uuid.uuid4().hex

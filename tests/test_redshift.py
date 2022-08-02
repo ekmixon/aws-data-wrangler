@@ -163,10 +163,20 @@ def test_copy_unload(path, redshift_table, redshift_con, databases_parameters):
 
 
 def test_copy_upsert(path, redshift_table, redshift_con, databases_parameters):
-    df = pd.DataFrame({"id": list((range(1_000))), "val": list(["foo" if i % 2 == 0 else "boo" for i in range(1_000)])})
-    df3 = pd.DataFrame(
-        {"id": list((range(1_000, 1_500))), "val": list(["foo" if i % 2 == 0 else "boo" for i in range(500)])}
+    df = pd.DataFrame(
+        {
+            "id": list((range(1_000))),
+            "val": ["foo" if i % 2 == 0 else "boo" for i in range(1_000)],
+        }
     )
+
+    df3 = pd.DataFrame(
+        {
+            "id": list((range(1_000, 1_500))),
+            "val": ["foo" if i % 2 == 0 else "boo" for i in range(500)],
+        }
+    )
+
 
     # CREATE
     path = f"{path}upsert/test_redshift_copy_upsert/"
@@ -648,8 +658,20 @@ def test_decimal_cast(redshift_table, redshift_con):
 
 
 def test_upsert(redshift_table, redshift_con):
-    df = pd.DataFrame({"id": list((range(10))), "val": list(["foo" if i % 2 == 0 else "boo" for i in range(10)])})
-    df3 = pd.DataFrame({"id": list((range(10, 15))), "val": list(["foo" if i % 2 == 0 else "boo" for i in range(5)])})
+    df = pd.DataFrame(
+        {
+            "id": list((range(10))),
+            "val": ["foo" if i % 2 == 0 else "boo" for i in range(10)],
+        }
+    )
+
+    df3 = pd.DataFrame(
+        {
+            "id": list((range(10, 15))),
+            "val": ["foo" if i % 2 == 0 else "boo" for i in range(5)],
+        }
+    )
+
 
     # CREATE
     wr.redshift.to_sql(
@@ -946,7 +968,7 @@ def test_insert_with_column_names(redshift_table, redshift_con):
 
 @pytest.mark.parametrize("chunksize", [1, 10, 500])
 def test_dfs_are_equal_for_different_chunksizes(redshift_table, redshift_con, chunksize):
-    df = pd.DataFrame({"c0": [i for i in range(64)], "c1": ["foo" for _ in range(64)]})
+    df = pd.DataFrame({"c0": list(range(64)), "c1": ["foo" for _ in range(64)]})
     wr.redshift.to_sql(df=df, con=redshift_con, schema="public", table=redshift_table, chunksize=chunksize)
 
     df2 = wr.redshift.read_sql_table(con=redshift_con, schema="public", table=redshift_table)
@@ -958,8 +980,20 @@ def test_dfs_are_equal_for_different_chunksizes(redshift_table, redshift_con, ch
 
 
 def test_to_sql_multi_transaction(redshift_table, redshift_con):
-    df = pd.DataFrame({"id": list((range(10))), "val": list(["foo" if i % 2 == 0 else "boo" for i in range(10)])})
-    df2 = pd.DataFrame({"id": list((range(10, 15))), "val": list(["foo" if i % 2 == 0 else "boo" for i in range(5)])})
+    df = pd.DataFrame(
+        {
+            "id": list((range(10))),
+            "val": ["foo" if i % 2 == 0 else "boo" for i in range(10)],
+        }
+    )
+
+    df2 = pd.DataFrame(
+        {
+            "id": list((range(10, 15))),
+            "val": ["foo" if i % 2 == 0 else "boo" for i in range(5)],
+        }
+    )
+
 
     wr.redshift.to_sql(
         df=df,

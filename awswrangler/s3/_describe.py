@@ -126,7 +126,7 @@ def describe_objects(
         last_modified_end=last_modified_end,
         s3_additional_kwargs=s3_additional_kwargs,
     )
-    if len(paths) < 1:
+    if not paths:
         return {}
     resp_list: List[Tuple[str, Dict[str, Any]]]
     if len(paths) == 1:
@@ -138,7 +138,7 @@ def describe_objects(
                 s3_additional_kwargs=s3_additional_kwargs,
             )
         ]
-    elif use_threads is False:
+    elif not use_threads:
         resp_list = [
             _describe_object(
                 path=p,
@@ -161,8 +161,7 @@ def describe_objects(
                     itertools.repeat(s3_additional_kwargs),
                 )
             )
-    desc_dict: Dict[str, Dict[str, Any]] = dict(resp_list)
-    return desc_dict
+    return dict(resp_list)
 
 
 def size_objects(
@@ -221,8 +220,7 @@ def size_objects(
         boto3_session=boto3_session,
         s3_additional_kwargs=s3_additional_kwargs,
     )
-    size_dict: Dict[str, Optional[int]] = {k: d.get("ContentLength", None) for k, d in desc_list.items()}
-    return size_dict
+    return {k: d.get("ContentLength", None) for k, d in desc_list.items()}
 
 
 def get_bucket_region(bucket: str, boto3_session: Optional[boto3.Session] = None) -> str:

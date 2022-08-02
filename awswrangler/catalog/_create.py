@@ -16,11 +16,10 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _update_if_necessary(dic: Dict[str, str], key: str, value: Optional[str], mode: str) -> str:
-    if value is not None:
-        if key not in dic or dic[key] != value:
-            dic[key] = value
-            if mode in ("append", "overwrite_partitions"):
-                return "update"
+    if value is not None and (key not in dic or dic[key] != value):
+        dic[key] = value
+        if mode in {"append", "overwrite_partitions"}:
+            return "update"
     return mode
 
 
@@ -48,19 +47,19 @@ def _create_table(  # pylint: disable=too-many-branches,too-many-statements
     mode = _update_if_necessary(dic=table_input, key="Description", value=description, mode=mode)
 
     # Parameters
-    parameters = parameters if parameters else {}
+    parameters = parameters or {}
     for k, v in parameters.items():
         mode = _update_if_necessary(dic=table_input["Parameters"], key=k, value=v, mode=mode)
 
     # Projection
-    if projection_enabled is True:
+    if projection_enabled:
         table_input["Parameters"]["projection.enabled"] = "true"
-        partitions_types = partitions_types if partitions_types else {}
-        projection_types = projection_types if projection_types else {}
-        projection_ranges = projection_ranges if projection_ranges else {}
-        projection_values = projection_values if projection_values else {}
-        projection_intervals = projection_intervals if projection_intervals else {}
-        projection_digits = projection_digits if projection_digits else {}
+        partitions_types = partitions_types or {}
+        projection_types = projection_types or {}
+        projection_ranges = projection_ranges or {}
+        projection_values = projection_values or {}
+        projection_intervals = projection_intervals or {}
+        projection_digits = projection_digits or {}
         projection_types = {sanitize_column_name(k): v for k, v in projection_types.items()}
         projection_ranges = {sanitize_column_name(k): v for k, v in projection_ranges.items()}
         projection_values = {sanitize_column_name(k): v for k, v in projection_values.items()}
@@ -96,9 +95,10 @@ def _create_table(  # pylint: disable=too-many-branches,too-many-statements
         table_input["Parameters"]["projection.enabled"] = "false"
 
     # Column comments
-    columns_comments = columns_comments if columns_comments else {}
-    columns_comments = {sanitize_column_name(k): v for k, v in columns_comments.items()}
-    if columns_comments:
+    columns_comments = columns_comments or {}
+    if columns_comments := {
+        sanitize_column_name(k): v for k, v in columns_comments.items()
+    }:
         for col in table_input["StorageDescriptor"]["Columns"]:
             name: str = col["Name"]
             if name in columns_comments:
@@ -117,7 +117,7 @@ def _create_table(  # pylint: disable=too-many-branches,too-many-statements
         raise exceptions.InvalidArgument(
             f"{mode} is not a valid mode. It must be 'overwrite', 'append' or 'overwrite_partitions'."
         )
-    if table_exist is True and mode == "overwrite":
+    if table_exist and mode == "overwrite":
         delete_all_partitions(table=table, database=database, catalog_id=catalog_id, boto3_session=session)
         _logger.debug("Updating table (%s)...", mode)
         client_glue.update_table(
@@ -125,7 +125,7 @@ def _create_table(  # pylint: disable=too-many-branches,too-many-statements
                 catalog_id=catalog_id, DatabaseName=database, TableInput=table_input, SkipArchive=skip_archive
             )
         )
-    elif (table_exist is True) and (mode in ("append", "overwrite_partitions", "update")):
+    elif table_exist and mode in ("append", "overwrite_partitions", "update"):
         if mode == "update":
             _logger.debug("Updating table (%s)...", mode)
             client_glue.update_table(
@@ -133,7 +133,7 @@ def _create_table(  # pylint: disable=too-many-branches,too-many-statements
                     catalog_id=catalog_id, DatabaseName=database, TableInput=table_input, SkipArchive=skip_archive
                 )
             )
-    elif table_exist is False:
+    elif not table_exist:
         try:
             _logger.debug("Creating table (%s)...", mode)
             client_glue.create_table(
@@ -236,7 +236,10 @@ def _create_parquet_table(
     partitions_types = {} if partitions_types is None else partitions_types
     _logger.debug("catalog_table_input: %s", catalog_table_input)
     table_input: Dict[str, Any]
-    if (catalog_table_input is not None) and (mode in ("append", "overwrite_partitions")):
+    if catalog_table_input is not None and mode in {
+        "append",
+        "overwrite_partitions",
+    }:
         table_input = catalog_table_input
         catalog_cols: Dict[str, str] = {x["Name"]: x["Type"] for x in table_input["StorageDescriptor"]["Columns"]}
         for c, t in columns_types.items():
@@ -313,9 +316,12 @@ def _create_csv_table(  # pylint: disable=too-many-arguments
     partitions_types = {} if partitions_types is None else partitions_types
     _logger.debug("catalog_table_input: %s", catalog_table_input)
     table_input: Dict[str, Any]
-    if schema_evolution is False:
+    if not schema_evolution:
         _utils.check_schema_changes(columns_types=columns_types, table_input=catalog_table_input, mode=mode)
-    if (catalog_table_input is not None) and (mode in ("append", "overwrite_partitions")):
+    if catalog_table_input is not None and mode in {
+        "append",
+        "overwrite_partitions",
+    }:
         table_input = catalog_table_input
     else:
         table_input = _csv_table_definition(

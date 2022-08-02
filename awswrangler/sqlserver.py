@@ -51,8 +51,7 @@ def _validate_connection(con: "pyodbc.Connection") -> None:
 
 def _get_table_identifier(schema: Optional[str], table: str) -> str:
     schema_str = f'"{schema}".' if schema else ""
-    table_identifier = f'{schema_str}"{table}"'
-    return table_identifier
+    return f'{schema_str}"{table}"'
 
 
 def _drop_table(cursor: "pyodbc.Cursor", schema: Optional[str], table: str) -> None:
@@ -382,9 +381,7 @@ def to_sql(
                 df.reset_index(level=df.index.names, inplace=True)
             column_placeholders: str = ", ".join(["?"] * len(df.columns))
             table_identifier = _get_table_identifier(schema, table)
-            insertion_columns = ""
-            if use_column_names:
-                insertion_columns = f"({', '.join(df.columns)})"
+            insertion_columns = f"({', '.join(df.columns)})" if use_column_names else ""
             placeholder_parameter_pair_generator = _db_utils.generate_placeholder_parameter_pairs(
                 df=df, column_placeholders=column_placeholders, chunksize=chunksize
             )

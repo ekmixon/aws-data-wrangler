@@ -46,9 +46,7 @@ def _select_object_content(
                     [json.loads(record) for record in records],
                 )
             )
-    if not dfs:
-        return pd.DataFrame()
-    return pd.concat(dfs, ignore_index=True)
+    return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
 
 def _paginate_stream(
@@ -66,14 +64,15 @@ def _paginate_stream(
     client_s3: boto3.client = _utils.client(service_name="s3", session=boto3_session)
 
     if use_threads is False:
-        dfs = list(
+        dfs = [
             _select_object_content(
                 args=args,
                 client_s3=client_s3,
                 scan_range=scan_range,
             )
             for scan_range in _gen_scan_range(obj_size=obj_size)
-        )
+        ]
+
     else:
         cpus: int = _utils.ensure_cpu_count(use_threads=use_threads)
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpus) as executor:
@@ -199,7 +198,7 @@ def select_query(
         },
     }
     if s3_additional_kwargs:
-        args.update(s3_additional_kwargs)
+        args |= s3_additional_kwargs
     _logger.debug("args:\n%s", pprint.pformat(args))
 
     if any(

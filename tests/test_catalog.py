@@ -69,12 +69,12 @@ def test_catalog(path: str, glue_database: str, glue_table: str, account_id: str
     assert len(wr.catalog.databases(catalog_id=account_id)) == len(df_dbs)
     assert glue_database in df_dbs["Database"].to_list()
     tables = list(wr.catalog.get_tables())
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         if tbl["Name"] == glue_table:
             assert tbl["TableType"] == "EXTERNAL_TABLE"
     tables = list(wr.catalog.get_tables(database=glue_database))
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         assert tbl["DatabaseName"] == glue_database
     # add & delete column
@@ -89,25 +89,25 @@ def test_catalog(path: str, glue_database: str, glue_table: str, account_id: str
     assert len(dtypes) == 4
     # search
     tables = list(wr.catalog.search_tables(text="parquet", catalog_id=account_id))
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         if tbl["Name"] == glue_table:
             assert tbl["TableType"] == "EXTERNAL_TABLE"
     # prefix
     tables = list(wr.catalog.get_tables(name_prefix=glue_table[:4], catalog_id=account_id))
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         if tbl["Name"] == glue_table:
             assert tbl["TableType"] == "EXTERNAL_TABLE"
     # suffix
     tables = list(wr.catalog.get_tables(name_suffix=glue_table[-4:], catalog_id=account_id))
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         if tbl["Name"] == glue_table:
             assert tbl["TableType"] == "EXTERNAL_TABLE"
     # name_contains
     tables = list(wr.catalog.get_tables(name_contains=glue_table[4:-4], catalog_id=account_id))
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         if tbl["Name"] == glue_table:
             assert tbl["TableType"] == "EXTERNAL_TABLE"
@@ -123,7 +123,7 @@ def test_catalog(path: str, glue_database: str, glue_table: str, account_id: str
         )
     # prefix & suffix
     tables = list(wr.catalog.get_tables(name_prefix=glue_table[0], name_suffix=glue_table[-1], catalog_id=account_id))
-    assert len(tables) > 0
+    assert tables
     for tbl in tables:
         if tbl["Name"] == glue_table:
             assert tbl["TableType"] == "EXTERNAL_TABLE"
@@ -151,7 +151,7 @@ def test_catalog(path: str, glue_database: str, glue_table: str, account_id: str
 
 def test_catalog_get_databases(glue_database):
     dbs = [db["Name"] for db in wr.catalog.get_databases()]
-    assert len(dbs) > 0
+    assert dbs
     assert glue_database in dbs
 
 

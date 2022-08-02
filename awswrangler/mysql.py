@@ -379,11 +379,9 @@ def to_sql(
             if index:
                 df.reset_index(level=df.index.names, inplace=True)
             column_placeholders: str = ", ".join(["%s"] * len(df.columns))
-            insertion_columns = ""
             upsert_columns = ""
             upsert_str = ""
-            if use_column_names:
-                insertion_columns = f"({', '.join(df.columns)})"
+            insertion_columns = f"({', '.join(df.columns)})" if use_column_names else ""
             if mode == "upsert_duplicate_key":
                 upsert_columns = ", ".join(df.columns.map(lambda column: f"`{column}`=VALUES(`{column}`)"))
                 upsert_str = f" ON DUPLICATE KEY UPDATE {upsert_columns}"

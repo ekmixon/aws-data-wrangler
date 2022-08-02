@@ -76,5 +76,4 @@ def get_current_identity_name(boto3_session: Optional[boto3.Session] = None) -> 
 
     """
     arn: str = get_current_identity_arn(boto3_session=boto3_session)
-    name: str = arn.rpartition("/")[-1]
-    return name
+    return arn.rpartition("/")[-1]

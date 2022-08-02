@@ -43,7 +43,7 @@ class _WorkGroupConfig(NamedTuple):
 
 class _LocalMetadataCacheManager:
     def __init__(self) -> None:
-        self._cache: Dict[str, Any] = dict()
+        self._cache: Dict[str, Any] = {}
         self._pqueue: List[Tuple[datetime.datetime, str]] = []
         self._max_cache_size = 100
 
@@ -87,10 +87,13 @@ class _LocalMetadataCacheManager:
         List[Dict[str, Any]]
             Returns successful DDL and DML queries sorted by query completion time.
         """
-        filtered: List[Dict[str, Any]] = []
-        for query in self._cache.values():
-            if (query["Status"].get("State") == "SUCCEEDED") and (query.get("StatementType") in ["DDL", "DML"]):
-                filtered.append(query)
+        filtered: List[Dict[str, Any]] = [
+            query
+            for query in self._cache.values()
+            if (query["Status"].get("State") == "SUCCEEDED")
+            and (query.get("StatementType") in ["DDL", "DML"])
+        ]
+
         return sorted(filtered, key=lambda e: str(e["Status"]["CompletionDateTime"]), reverse=True)
 
     def __contains__(self, key: str) -> bool:
@@ -141,11 +144,10 @@ def _start_query_execution(
             args["ResultConfiguration"]["EncryptionConfiguration"] = {"EncryptionOption": wg_config.encryption}
             if wg_config.kms_key is not None:
                 args["ResultConfiguration"]["EncryptionConfiguration"]["KmsKey"] = wg_config.kms_key
-    else:
-        if encryption is not None:
-            args["ResultConfiguration"]["EncryptionConfiguration"] = {"EncryptionOption": encryption}
-            if kms_key is not None:
-                args["ResultConfiguration"]["EncryptionConfiguration"]["KmsKey"] = kms_key
+    elif encryption is not None:
+        args["ResultConfiguration"]["EncryptionConfiguration"] = {"EncryptionOption": encryption}
+        if kms_key is not None:
+            args["ResultConfiguration"]["EncryptionConfiguration"]["KmsKey"] = kms_key
 
     # database
     if database is not None:
@@ -216,7 +218,7 @@ def _fetch_txt_result(
         names=list(query_metadata.dtype.keys()),
         sep="\t",
     )
-    if keep_files is False:
+    if not keep_files:
         s3.delete_objects(
             path=[path, f"{path}.metadata"],
             use_threads=False,
@@ -284,7 +286,7 @@ def _get_query_metadata(  # pylint: disable=too-many-statements
         pandas_type: str = _data_types.athena2pandas(dtype=col_type)
         if (categories is not None) and (col_name in categories):
             dtype[col_name] = "category"
-        elif pandas_type in ["datetime64", "date"]:
+        elif pandas_type in {"datetime64", "date"}:
             parse_timestamps.append(col_name)
             if pandas_type == "date":
                 parse_dates.append(col_name)
@@ -324,7 +326,7 @@ def _empty_dataframe_response(
     chunked: bool, query_metadata: _QueryMetadata
 ) -> Union[pd.DataFrame, Generator[None, None, None]]:
     """Generate an empty dataframe response."""
-    if chunked is False:
+    if not chunked:
         df = pd.DataFrame()
         df = _apply_query_metadata(df=df, query_metadata=query_metadata)
         return df

@@ -190,7 +190,6 @@ def _check_column_type(column_type: str) -> bool:
 
 
 def _update_table_definition(current_definition: Dict[str, Any]) -> Dict[str, Any]:
-    definition: Dict[str, Any] = dict()
     keep_keys = [
         "Name",
         "Description",
@@ -206,7 +205,8 @@ def _update_table_definition(current_definition: Dict[str, Any]) -> Dict[str, An
         "Parameters",
         "TargetTable",
     ]
-    for key in current_definition["Table"]:
-        if key in keep_keys:
-            definition[key] = current_definition["Table"][key]
-    return definition
+    return {
+        key: current_definition["Table"][key]
+        for key in current_definition["Table"]
+        if key in keep_keys
+    }

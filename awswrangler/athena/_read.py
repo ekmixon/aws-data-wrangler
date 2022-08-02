@@ -58,8 +58,7 @@ def _add_query_metadata_generator(
 ) -> Iterator[pd.DataFrame]:
     """Add Query Execution metadata to every DF in iterator."""
     for df in dfs:
-        df = _apply_query_metadata(df=df, query_metadata=query_metadata)
-        yield df
+        yield _apply_query_metadata(df=df, query_metadata=query_metadata)
 
 
 def _fix_csv_types(df: pd.DataFrame, parse_dates: List[str], binaries: List[str]) -> pd.DataFrame:
@@ -79,8 +78,7 @@ def _delete_after_iterate(
     boto3_session: boto3.Session,
     s3_additional_kwargs: Optional[Dict[str, str]],
 ) -> Iterator[pd.DataFrame]:
-    for df in dfs:
-        yield df
+    yield from dfs
     s3.delete_objects(
         path=paths, use_threads=use_threads, boto3_session=boto3_session, s3_additional_kwargs=s3_additional_kwargs
     )
@@ -99,9 +97,7 @@ def _compare_query_string(sql: str, other: str) -> bool:
     comparison_query = _prepare_query_string_for_comparison(query_string=other)
     _logger.debug("sql: %s", sql)
     _logger.debug("comparison_query: %s", comparison_query)
-    if sql == comparison_query:
-        return True
-    return False
+    return sql == comparison_query
 
 
 def _get_last_query_infos(
@@ -122,9 +118,12 @@ def _get_last_query_infos(
     for page in paginator.paginate(**args):
         _logger.debug("paginating Athena's queries history...")
         query_execution_id_list: List[str] = page["QueryExecutionIds"]
-        for query_execution_id in query_execution_id_list:
-            if query_execution_id not in _cache_manager:
-                uncached_ids.append(query_execution_id)
+        uncached_ids.extend(
+            query_execution_id
+            for query_execution_id in query_execution_id_list
+            if query_execution_id not in _cache_manager
+        )
+
     if uncached_ids:
         new_execution_data = []
         for i in range(0, len(uncached_ids), page_size):
@@ -171,15 +170,14 @@ def _check_for_cached_results(
     """
     if max_cache_seconds <= 0:
         return _CacheInfo(has_valid_cache=False)
-    num_executions_inspected: int = 0
     comparable_sql: str = _prepare_query_string_for_comparison(sql)
     current_timestamp: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
     _logger.debug("current_timestamp: %s", current_timestamp)
-    for query_info in _get_last_query_infos(
+    for num_executions_inspected, query_info in enumerate(_get_last_query_infos(
         max_remote_cache_entries=max_remote_cache_entries,
         boto3_session=boto3_session,
         workgroup=workgroup,
-    ):
+    ), start=1):
         query_execution_id: str = query_info["QueryExecutionId"]
         query_timestamp: datetime.datetime = query_info["Status"]["CompletionDateTime"]
         _logger.debug("query_timestamp: %s", query_timestamp)
@@ -190,14 +188,15 @@ def _check_for_cached_results(
         statement_type: Optional[str] = query_info.get("StatementType")
         if statement_type == "DDL" and query_info["Query"].startswith("CREATE TABLE"):
             parsed_query: Optional[str] = _parse_select_query_from_possible_ctas(possible_ctas=query_info["Query"])
-            if parsed_query is not None:
-                if _compare_query_string(sql=comparable_sql, other=parsed_query):
-                    return _CacheInfo(
-                        has_valid_cache=True,
-                        file_format="parquet",
-                        query_execution_id=query_execution_id,
-                        query_execution_payload=query_info,
-                    )
+            if parsed_query is not None and _compare_query_string(
+                sql=comparable_sql, other=parsed_query
+            ):
+                return _CacheInfo(
+                    has_valid_cache=True,
+                    file_format="parquet",
+                    query_execution_id=query_execution_id,
+                    query_execution_payload=query_info,
+                )
         elif statement_type == "DML" and not query_info["Query"].startswith("INSERT"):
             if _compare_query_string(sql=comparable_sql, other=query_info["Query"]):
                 return _CacheInfo(
@@ -206,7 +205,6 @@ def _check_for_cached_results(
                     query_execution_id=query_execution_id,
                     query_execution_payload=query_info,
                 )
-        num_executions_inspected += 1
         _logger.debug("num_executions_inspected: %s", num_executions_inspected)
         if num_executions_inspected >= max_cache_query_inspections:
             return _CacheInfo(has_valid_cache=False)
@@ -257,7 +255,7 @@ def _fetch_parquet_result(
     paths_delete: List[str] = paths + [manifest_path, metadata_path]
     _logger.debug("type(ret): %s", type(ret))
     if chunked is False:
-        if keep_files is False:
+        if not keep_files:
             s3.delete_objects(
                 path=paths_delete,
                 use_threads=use_threads,
@@ -265,15 +263,17 @@ def _fetch_parquet_result(
                 s3_additional_kwargs=s3_additional_kwargs,
             )
         return ret
-    if keep_files is False:
-        return _delete_after_iterate(
+    return (
+        ret
+        if keep_files
+        else _delete_after_iterate(
             dfs=ret,
             paths=paths_delete,
             use_threads=use_threads,
             boto3_session=boto3_session,
             s3_additional_kwargs=s3_additional_kwargs,
         )
-    return ret
+    )
 
 
 def _fetch_csv_result(
@@ -309,7 +309,7 @@ def _fetch_csv_result(
     if _chunksize is None:
         df = _fix_csv_types(df=ret, parse_dates=query_metadata.parse_dates, binaries=query_metadata.binaries)
         df = _apply_query_metadata(df=df, query_metadata=query_metadata)
-        if keep_files is False:
+        if not keep_files:
             s3.delete_objects(
                 path=[path, f"{path}.metadata"],
                 use_threads=use_threads,
@@ -319,15 +319,17 @@ def _fetch_csv_result(
         return df
     dfs = _fix_csv_types_generator(dfs=ret, parse_dates=query_metadata.parse_dates, binaries=query_metadata.binaries)
     dfs = _add_query_metadata_generator(dfs=dfs, query_metadata=query_metadata)
-    if keep_files is False:
-        return _delete_after_iterate(
+    return (
+        dfs
+        if keep_files
+        else _delete_after_iterate(
             dfs=dfs,
             paths=[path, f"{path}.metadata"],
             use_threads=use_threads,
             boto3_session=boto3_session,
             s3_additional_kwargs=s3_additional_kwargs,
         )
-    return dfs
+    )
 
 
 def _resolve_query_with_cache(
@@ -541,7 +543,7 @@ def _resolve_query_without_cache(
     wg_config: _WorkGroupConfig = _get_workgroup_config(session=boto3_session, workgroup=workgroup)
     _s3_output: str = _get_s3_output(s3_output=s3_output, wg_config=wg_config, boto3_session=boto3_session)
     _s3_output = _s3_output[:-1] if _s3_output[-1] == "/" else _s3_output
-    if ctas_approach is True:
+    if ctas_approach:
         if ctas_temp_table_name is not None:
             name: str = catalog.sanitize_table_name(ctas_temp_table_name)
         else:
@@ -808,7 +810,10 @@ def read_sql_query(
             "(https://github.com/awslabs/aws-data-wrangler/blob/main/"
             "tutorials/006%20-%20Amazon%20Athena.ipynb)"
         )
-    chunksize = sys.maxsize if ctas_approach is False and chunksize is True else chunksize
+    chunksize = (
+        sys.maxsize if not ctas_approach and chunksize is True else chunksize
+    )
+
     session: boto3.Session = _utils.ensure_session(session=boto3_session)
     if params is None:
         params = {}

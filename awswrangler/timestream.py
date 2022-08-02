@@ -73,7 +73,7 @@ def _write_batch(
 def _cast_value(value: str, dtype: str) -> Any:  # pylint: disable=too-many-branches,too-many-return-statements
     if dtype == "VARCHAR":
         return value
-    if dtype in ("INTEGER", "BIGINT"):
+    if dtype in {"INTEGER", "BIGINT"}:
         return int(value)
     if dtype == "DOUBLE":
         return float(value)

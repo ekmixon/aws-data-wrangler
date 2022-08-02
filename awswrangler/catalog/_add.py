@@ -33,10 +33,13 @@ def _add_partitions(
         )
         if ("Errors" in res) and res["Errors"]:
             for error in res["Errors"]:
-                if "ErrorDetail" in error:
-                    if "ErrorCode" in error["ErrorDetail"]:
-                        if error["ErrorDetail"]["ErrorCode"] != "AlreadyExistsException":
-                            raise exceptions.ServiceApiError(str(res["Errors"]))
+                if (
+                    "ErrorDetail" in error
+                    and "ErrorCode" in error["ErrorDetail"]
+                    and error["ErrorDetail"]["ErrorCode"]
+                    != "AlreadyExistsException"
+                ):
+                    raise exceptions.ServiceApiError(str(res["Errors"]))
 
 
 @apply_configs
@@ -243,18 +246,18 @@ def add_column(
     ...     column_type='int'
     ... )
     """
-    if _check_column_type(column_type):
-        client_glue: boto3.client = _utils.client(service_name="glue", session=boto3_session)
-        table_res: Dict[str, Any] = client_glue.get_table(DatabaseName=database, Name=table)
-        table_input: Dict[str, Any] = _update_table_definition(table_res)
-        table_input["StorageDescriptor"]["Columns"].append(
-            {"Name": column_name, "Type": column_type, "Comment": column_comment}
-        )
-        res: Dict[str, Any] = client_glue.update_table(
-            **_catalog_id(catalog_id=catalog_id, DatabaseName=database, TableInput=table_input)
-        )
-        if ("Errors" in res) and res["Errors"]:
-            for error in res["Errors"]:
-                if "ErrorDetail" in error:
-                    if "ErrorCode" in error["ErrorDetail"]:
-                        raise exceptions.ServiceApiError(str(res["Errors"]))
+    if not _check_column_type(column_type):
+        return
+    client_glue: boto3.client = _utils.client(service_name="glue", session=boto3_session)
+    table_res: Dict[str, Any] = client_glue.get_table(DatabaseName=database, Name=table)
+    table_input: Dict[str, Any] = _update_table_definition(table_res)
+    table_input["StorageDescriptor"]["Columns"].append(
+        {"Name": column_name, "Type": column_type, "Comment": column_comment}
+    )
+    res: Dict[str, Any] = client_glue.update_table(
+        **_catalog_id(catalog_id=catalog_id, DatabaseName=database, TableInput=table_input)
+    )
+    if ("Errors" in res) and res["Errors"]:
+        for error in res["Errors"]:
+            if "ErrorDetail" in error and "ErrorCode" in error["ErrorDetail"]:
+                raise exceptions.ServiceApiError(str(res["Errors"]))

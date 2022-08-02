@@ -32,7 +32,7 @@ def _to_partitions(
 
     for keys, subgroup in df.groupby(by=partition_cols, observed=True):
         subgroup = subgroup.drop(partition_cols, axis="columns")
-        keys = (keys,) if not isinstance(keys, tuple) else keys
+        keys = keys if isinstance(keys, tuple) else (keys, )
         subdir = "/".join([f"{name}={val}" for name, val in zip(partition_cols, keys)])
         prefix: str = f"{path_root}{subdir}/"
         if mode == "overwrite_partitions":
@@ -80,7 +80,7 @@ def _to_buckets(
     proxy: Optional[_WriteProxy] = None,
     **func_kwargs: Any,
 ) -> List[str]:
-    _proxy: _WriteProxy = proxy if proxy else _WriteProxy(use_threads=False)
+    _proxy: _WriteProxy = proxy or _WriteProxy(use_threads=False)
     bucket_number_series = df.astype("O").apply(
         lambda row: _get_bucket_number(bucketing_info[1], [row[col_name] for col_name in bucketing_info[0]]),
         axis="columns",
@@ -95,11 +95,7 @@ def _to_buckets(
             use_threads=use_threads,
             **func_kwargs,
         )
-    if proxy:
-        return []
-
-    paths: List[str] = _proxy.close()  # blocking
-    return paths
+    return [] if proxy else _proxy.close()
 
 
 def _get_bucket_number(number_of_buckets: int, values: List[Union[str, int, bool]]) -> int:

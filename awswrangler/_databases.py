@@ -77,10 +77,10 @@ def _get_connection_attributes_from_secrets_manager(
         _dbname: str = dbname
     elif "dbname" in secret_value:
         _dbname = secret_value["dbname"]
-    else:
-        if kind != "redshift":
-            raise exceptions.InvalidConnection(f"The secret {secret_id} MUST have a dbname property.")
+    elif kind == "redshift":
         _dbname = _get_dbname(cluster_id=secret_value["dbClusterIdentifier"], boto3_session=boto3_session)
+    else:
+        raise exceptions.InvalidConnection(f"The secret {secret_id} MUST have a dbname property.")
     return ConnectionAttributes(
         kind=kind,
         user=secret_value["username"],
@@ -116,9 +116,7 @@ def get_connection_attributes(
 def _convert_params(sql: str, params: Optional[Union[List[Any], Tuple[Any, ...], Dict[Any, Any]]]) -> List[Any]:
     args: List[Any] = [sql]
     if params is not None:
-        if hasattr(params, "keys"):
-            return args + [params]
-        return args + [list(params)]
+        return args + [params] if hasattr(params, "keys") else args + [list(params)]
     return args
 
 
@@ -180,10 +178,10 @@ def _iterate_results(
         cursor.execute(*cursor_args)
         cols_names = _get_cols_names(cursor.description)
         while True:
-            records = cursor.fetchmany(chunksize)
-            if not records:
+            if records := cursor.fetchmany(chunksize):
+                yield _records2df(records=records, cols_names=cols_names, index=index_col, safe=safe, dtype=dtype)
+            else:
                 break
-            yield _records2df(records=records, cols_names=cols_names, index=index_col, safe=safe, dtype=dtype)
 
 
 def _fetch_all_results(
@@ -248,10 +246,7 @@ def generate_placeholder_parameter_pairs(
     def convert_value_to_native_python_type(value: Any) -> Any:
         if pd.isna(value):
             return None
-        if hasattr(value, "to_pydatetime"):
-            return value.to_pydatetime()
-
-        return value
+        return value.to_pydatetime() if hasattr(value, "to_pydatetime") else value
 
     parameters = df.values.tolist()
     for i in range(0, len(df.index), chunksize):

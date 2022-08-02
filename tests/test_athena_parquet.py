@@ -452,9 +452,10 @@ def test_read_parquet_filter_partitions(path, glue_table, glue_database, use_thr
         df2 = wr.s3.read_parquet_table(
             table=glue_table,
             database=glue_database,
-            partition_filter=lambda x: True if x["c2"] == str(i) else False,
+            partition_filter=lambda x: x["c2"] == str(i),
             use_threads=use_threads,
         )
+
         assert df2.shape == (1, 3)
         assert df2.c0.iloc[0] == i
         assert df2.c1.iloc[0] == i

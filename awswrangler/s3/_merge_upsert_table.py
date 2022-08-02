@@ -48,7 +48,7 @@ def _is_data_quality_sufficient(
     existing_df: pandas.DataFrame, delta_df: pandas.DataFrame, primary_key: List[str]
 ) -> bool:
     """Check data quality of existing table and the new delta feed."""
-    error_messages = list()
+    error_messages = []
     existing_schema = _data_types.pyarrow_types_from_pandas(df=existing_df, index=False)
     delta_schema = _data_types.pyarrow_types_from_pandas(df=delta_df, index=False)
     # Check for duplicates on the primary key in the existing table
@@ -65,7 +65,7 @@ def _is_data_quality_sufficient(
     if sum(pandas.DataFrame(delta_df, columns=primary_key).duplicated()) != 0:
         error_messages.append("Data inside the delta dataframe has duplicates.")
     # Return True only if no errors are encountered
-    if len(error_messages) > 0:
+    if error_messages:
         _logger.info("error_messages %s", error_messages)
         raise FailedQualityCheck("Data quality is insufficient to allow a merge. Please check errors above.")
     return True

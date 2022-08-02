@@ -404,15 +404,15 @@ def to_csv(  # pylint: disable=too-many-arguments,too-many-locals,too-many-state
     )
 
     # Initializing defaults
-    partition_cols = partition_cols if partition_cols else []
-    dtype = dtype if dtype else {}
+    partition_cols = partition_cols or []
+    dtype = dtype or {}
     partitions_values: Dict[str, List[str]] = {}
     mode = "append" if mode is None else mode
     filename_prefix = filename_prefix + uuid.uuid4().hex if filename_prefix else uuid.uuid4().hex
     session: boto3.Session = _utils.ensure_session(session=boto3_session)
 
     # Sanitize table to respect Athena's standards
-    if (sanitize_columns is True) or (database is not None and table is not None):
+    if sanitize_columns or (database is not None and table is not None):
         df, dtype, partition_cols = _sanitize(df=df, dtype=dtype, partition_cols=partition_cols)
 
     # Evaluating dtype
@@ -442,7 +442,7 @@ def to_csv(  # pylint: disable=too-many-arguments,too-many-locals,too-many-state
     df = _apply_dtype(df=df, dtype=dtype, catalog_table_input=catalog_table_input, mode=mode)
 
     paths: List[str] = []
-    if dataset is False:
+    if not dataset:
         pandas_kwargs["sep"] = sep
         pandas_kwargs["index"] = index
         pandas_kwargs["columns"] = columns
@@ -465,11 +465,11 @@ def to_csv(  # pylint: disable=too-many-arguments,too-many-locals,too-many-state
             pd_kwargs: Dict[str, Any] = {}
             compression: Optional[str] = pandas_kwargs.get("compression", None)
         else:
-            quoting = pandas_kwargs.get("quoting", None)
-            escapechar = pandas_kwargs.get("escapechar", None)
+            quoting = pandas_kwargs.get("quoting")
+            escapechar = pandas_kwargs.get("escapechar")
             header = pandas_kwargs.get("header", True)
-            date_format = pandas_kwargs.get("date_format", None)
-            compression = pandas_kwargs.get("compression", None)
+            date_format = pandas_kwargs.get("date_format")
+            compression = pandas_kwargs.get("compression")
             pd_kwargs = pandas_kwargs.copy()
             pd_kwargs.pop("quoting", None)
             pd_kwargs.pop("escapechar", None)
@@ -485,7 +485,7 @@ def to_csv(  # pylint: disable=too-many-arguments,too-many-locals,too-many-state
             columns_types, partitions_types = _data_types.athena_types_from_pandas_partitioned(
                 df=df, index=index, partition_cols=partition_cols, dtype=dtype, index_left=True
             )
-            if schema_evolution is False:
+            if not schema_evolution:
                 _utils.check_schema_changes(columns_types=columns_types, table_input=catalog_table_input, mode=mode)
 
         paths, partitions_values = _to_dataset(
@@ -545,7 +545,7 @@ def to_csv(  # pylint: disable=too-many-arguments,too-many-locals,too-many-state
                     serde_library=serde_library,
                     serde_parameters=serde_parameters,
                 )
-                if partitions_values and (regular_partitions is True):
+                if partitions_values and regular_partitions:
                     _logger.debug("partitions_values:\n%s", partitions_values)
                     catalog.add_csv_partitions(
                         database=database,

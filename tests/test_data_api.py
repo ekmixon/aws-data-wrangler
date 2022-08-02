@@ -11,16 +11,16 @@ def redshift_connector(databases_parameters):
     cluster_id = databases_parameters["redshift"]["identifier"]
     database = databases_parameters["redshift"]["database"]
     secret_arn = databases_parameters["redshift"]["secret_arn"]
-    conn = wr.data_api.redshift.connect(cluster_id, database, secret_arn=secret_arn)
-    return conn
+    return wr.data_api.redshift.connect(
+        cluster_id, database, secret_arn=secret_arn
+    )
 
 
 def create_rds_connector(rds_type, parameters):
     cluster_id = parameters[rds_type]["arn"]
     database = parameters[rds_type]["database"]
     secret_arn = parameters[rds_type]["secret_arn"]
-    conn = wr.data_api.rds.connect(cluster_id, database, secret_arn=secret_arn)
-    return conn
+    return wr.data_api.rds.connect(cluster_id, database, secret_arn=secret_arn)
 
 
 @pytest.fixture

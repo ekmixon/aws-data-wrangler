@@ -72,7 +72,7 @@ class RdsDataApi(connector.DataApiConnector):
             except self.client.exceptions.BadRequestException as exception:
                 last_exception = exception
                 total_sleep += sleep
-                self.logger.debug("BadRequestException occurred: %s", exception)
+                self.logger.debug("BadRequestException occurred: %s", last_exception)
                 self.logger.debug(
                     "Cluster may be paused - sleeping for %s seconds for a total of %s before retrying",
                     sleep,
@@ -107,8 +107,7 @@ class RdsDataApi(connector.DataApiConnector):
             rows.append(row)
 
         column_names: List[str] = [column["name"] for column in result["columnMetadata"]]
-        dataframe = pd.DataFrame(rows, columns=column_names)
-        return dataframe
+        return pd.DataFrame(rows, columns=column_names)
 
 
 def connect(resource_arn: str, database: str, secret_arn: str = "", **kwargs: Any) -> RdsDataApi:

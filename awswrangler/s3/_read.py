@@ -17,9 +17,9 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _get_path_root(path: Union[str, List[str]], dataset: bool) -> Optional[str]:
-    if (dataset is True) and (not isinstance(path, str)):
+    if dataset and not isinstance(path, str):
         raise exceptions.InvalidArgument("The path argument must be a string if dataset=True (Amazon S3 prefix).")
-    return _prefix_cleanup(str(path)) if dataset is True else None
+    return _prefix_cleanup(str(path)) if dataset else None
 
 
 def _get_path_ignore_suffix(path_ignore_suffix: Union[str, List[str], None]) -> Union[List[str], None]:
@@ -50,7 +50,7 @@ def _extract_partitions_metadata_from_paths(
                 values_tups = cast(Tuple[Tuple[str, str]], tuple(tuple(x.split("=")[:2]) for x in dirs))
                 values_dics: Dict[str, str] = dict(values_tups)
                 p_values: List[str] = list(values_dics.values())
-                p_types: Dict[str, str] = {x: "string" for x in values_dics.keys()}
+                p_types: Dict[str, str] = {x: "string" for x in values_dics}
                 if not partitions_types:
                     partitions_types = p_types
                 if p_values:
@@ -60,9 +60,11 @@ def _extract_partitions_metadata_from_paths(
                     raise exceptions.InvalidSchemaConvergence(
                         f"At least two different partitions schema detected: {partitions_types} and {p_types}"
                     )
-    if not partitions_types:
-        return None, None
-    return partitions_types, partitions_values
+    return (
+        (partitions_types, partitions_values)
+        if partitions_types
+        else (None, None)
+    )
 
 
 def _extract_partitions_from_path(path_root: str, path: str) -> Dict[str, str]:
@@ -76,8 +78,7 @@ def _extract_partitions_from_path(path_root: str, path: str) -> Dict[str, str]:
     if not dirs:
         return {}
     values_tups = cast(Tuple[Tuple[str, str]], tuple(tuple(x.split("=")[:2]) for x in dirs))
-    values_dics: Dict[str, str] = dict(values_tups)
-    return values_dics
+    return dict(values_tups)
 
 
 def _apply_partition_filter(
@@ -89,9 +90,9 @@ def _apply_partition_filter(
 
 
 def _apply_partitions(df: pd.DataFrame, dataset: bool, path: str, path_root: Optional[str]) -> pd.DataFrame:
-    if dataset is False:
+    if not dataset:
         return df
-    if dataset is True and path_root is None:
+    if path_root is None:
         raise exceptions.InvalidArgument("A path_root is required when dataset=True.")
     path_root = cast(str, path_root)
     partitions: Dict[str, str] = _extract_partitions_from_path(path_root=path_root, path=path)
@@ -113,12 +114,12 @@ def _extract_partitions_dtypes_from_table_details(response: Dict[str, Any]) -> D
 
 def _union(dfs: List[pd.DataFrame], ignore_index: Optional[bool]) -> pd.DataFrame:
     if ignore_index is None:
-        ignore_index = False
-        for df in dfs:
-            if hasattr(df, "_awswrangler_ignore_index"):
-                if df._awswrangler_ignore_index is True:  # pylint: disable=protected-access
-                    ignore_index = True
-                    break
+        ignore_index = any(
+            hasattr(df, "_awswrangler_ignore_index")
+            and df._awswrangler_ignore_index is True
+            for df in dfs
+        )
+
     cats: Tuple[Set[str], ...] = tuple(set(df.select_dtypes(include="category").columns) for df in dfs)
     for col in set.intersection(*cats):
         cat = union_categoricals([df[col] for df in dfs])
@@ -142,4 +143,4 @@ def _read_dfs_from_multiple_paths(
         kwargs["boto3_session"] = boto3_to_primitives(kwargs["boto3_session"])
         partial_read_func = partial(read_func, **kwargs)
         versions = [version_ids.get(p) if isinstance(version_ids, dict) else None for p in paths]
-        return list(df for df in executor.map(partial_read_func, paths, versions))
+        return list(executor.map(partial_read_func, paths, versions))
